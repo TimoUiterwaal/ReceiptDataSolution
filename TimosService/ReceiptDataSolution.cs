@@ -22,56 +22,46 @@ namespace TimosService
             timer.Interval = 5000; //number in ms
             timer.Enabled = true;
             eventId++;
-
-
         }
 
         protected override void OnStop()
         {
             WriteToFile("Event ID:" + eventId + "| Service has stopped at " + DateTime.Now);
             eventId++;
-
-
-
         }
 
         private void OnElapsedTime(object source, ElapsedEventArgs e)
         {
             WriteToFile("Event ID:" + eventId + "| Service was ran at " + DateTime.Now);
-
             eventId++;
 
-            string s = GetConnectionString();
+            string connectionString = GetConnectionString();
 
-            OpenSqlConnection(s);
-
+            using (SqlConnection connection = OpenSqlConnection(connectionString))
+            {
+                if (connection != null)
+                {
+                    ExecuteQuery(connection);
+                }
+            }
         }
 
-
-        //This is a method that is accepting input variabled
         public static void WriteToFile(string Message)
         {
-
-            //this defines a string path to the current base diretory + subfolder
             string path = AppDomain.CurrentDomain.BaseDirectory + "\\Logs";
-
-            //If the path variable doesn't  exist then create the subfolder
             if (!Directory.Exists(path))
             {
                 Directory.CreateDirectory(path);
             }
 
-            //define a file path base string
             string filepath = AppDomain.CurrentDomain.BaseDirectory + "\\Logs\\ServiceLog_" + DateTime.Now.Date.ToShortDateString().Replace('/', '_') + ".txt";
 
             if (!File.Exists(filepath))
             {
-                //create a file to write to
                 using (StreamWriter sw = File.CreateText(filepath))
                 {
                     sw.WriteLine(Message);
                 }
-
             }
             else
             {
@@ -80,43 +70,59 @@ namespace TimosService
                     sw.WriteLine(Message);
                 }
             }
-
         }
-        //This is a method to connect to the SQL DB
 
-        public static void OpenSqlConnection(string connectionString)
+        public static SqlConnection OpenSqlConnection(string connectionString)
         {
             try
             {
-                using (SqlConnection connection = new SqlConnection(connectionString))
+                SqlConnection connection = new SqlConnection(connectionString);
+                connection.Open();
+                WriteToFile("Event ID:" + eventId + "| ServerVersion: " + connection.ServerVersion);
+                eventId++;
+                WriteToFile("Event ID:" + eventId + "| State: " + connection.State);
+                eventId++;
+                return connection;
+            }
+            catch (SqlException ex)
+            {
+                WriteToFile("Event ID:" + eventId + "| SQL Exception: " + ex.Message);
+                eventId++;
+                return null;
+            }
+            catch (InvalidOperationException ex)
+            {
+                WriteToFile("Event ID:" + eventId + "| Invalid Operation Exception: " + ex.Message);
+                eventId++;
+                return null;
+            }
+            catch (Exception ex)
+            {
+                WriteToFile("Event ID:" + eventId + "| General Exception: " + ex.Message);
+                eventId++;
+                return null;
+            }
+        }
+
+        public static void ExecuteQuery(SqlConnection connection)
+        {
+            try
+            {
+                string queryString = "SELECT Recnum, UserIDrecnum FROM dbo.Receipts;";
+                var command = new SqlCommand(queryString, connection);
+
+                using (var reader = command.ExecuteReader())
                 {
-                    connection.Open();
-                    WriteToFile("Event ID:" + eventId + "|" + "ServerVersion: " + connection.ServerVersion);
-                    eventId++;
-                    WriteToFile("Event ID:" + eventId + "|" + "State: " + connection.State);
-                    eventId++;
-
-                    string queryString = "SELECT Recnum, UserIDrecnum FROM dbo.Receipts;";
-                    var command = new SqlCommand(queryString, connection);
-
-                    using (var reader = command.ExecuteReader())
+                    while (reader.Read())
                     {
-                        while (reader.Read())
-                        {
-                            WriteToFile("Event ID:" + eventId + "|" + String.Format(" {0}, {1}", reader[0], reader[1]));
-                            eventId++;
-                        }
+                        WriteToFile("Event ID:" + eventId + "|" + String.Format(" {0}, {1}", reader[0], reader[1]));
+                        eventId++;
                     }
                 }
             }
             catch (SqlException ex)
             {
                 WriteToFile("Event ID:" + eventId + "| SQL Exception: " + ex.Message);
-                eventId++;
-            }
-            catch (InvalidOperationException ex)
-            {
-                WriteToFile("Event ID:" + eventId + "| Invalid Operation Exception: " + ex.Message);
                 eventId++;
             }
             catch (Exception ex)
@@ -127,18 +133,14 @@ namespace TimosService
         }
 
         static private string GetConnectionString()
-        {
-
-            //TODO
+        {           
+             //TODO
             // To avoid storing the connection string in your code, 
             // you can retrieve it from a configuration file, using the 
             // System.Configuration.ConfigurationSettings.AppSettings property
             //(local)/
             return "Persist Security Info=False;User ID=ReceiptDataSolution;Password=ReceiptDataSolution;Initial Catalog=ReceiptDataSolution;Server=DESKTOP-NATENFH";
-
-
         }
-
     }
 
 }
