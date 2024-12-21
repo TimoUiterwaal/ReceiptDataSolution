@@ -86,26 +86,43 @@ namespace TimosService
 
         public static void OpenSqlConnection(string connectionString)
         {
-
-            using (SqlConnection connection = new SqlConnection(connectionString))
+            try
             {
-                connection.Open();
-                WriteToFile("Event ID:" + eventId + "|" + "ServerVersion: {0}" + connection.ServerVersion);
-                eventId++;
-                WriteToFile("Event ID:" + eventId + "|" + "State: {0}" + connection.State);
-                eventId++;
-
-                string queryString = "SELECT Recnum, UserIDrecnum FROM dbo.Receipts;";
-                var command = new SqlCommand(queryString, connection);
-
-                using (var reader = command.ExecuteReader())
+                using (SqlConnection connection = new SqlConnection(connectionString))
                 {
-                    while (reader.Read())
+                    connection.Open();
+                    WriteToFile("Event ID:" + eventId + "|" + "ServerVersion: " + connection.ServerVersion);
+                    eventId++;
+                    WriteToFile("Event ID:" + eventId + "|" + "State: " + connection.State);
+                    eventId++;
+
+                    string queryString = "SELECT Recnum, UserIDrecnum FROM dbo.Receipts;";
+                    var command = new SqlCommand(queryString, connection);
+
+                    using (var reader = command.ExecuteReader())
                     {
-                        WriteToFile("Event ID:" + eventId + "|" + String.Format(" {0}, {1}", reader[0], reader[1]));
-                        eventId++;
+                        while (reader.Read())
+                        {
+                            WriteToFile("Event ID:" + eventId + "|" + String.Format(" {0}, {1}", reader[0], reader[1]));
+                            eventId++;
+                        }
                     }
                 }
+            }
+            catch (SqlException ex)
+            {
+                WriteToFile("Event ID:" + eventId + "| SQL Exception: " + ex.Message);
+                eventId++;
+            }
+            catch (InvalidOperationException ex)
+            {
+                WriteToFile("Event ID:" + eventId + "| Invalid Operation Exception: " + ex.Message);
+                eventId++;
+            }
+            catch (Exception ex)
+            {
+                WriteToFile("Event ID:" + eventId + "| General Exception: " + ex.Message);
+                eventId++;
             }
         }
 
