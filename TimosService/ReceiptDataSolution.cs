@@ -1,17 +1,43 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.IO;
+using System.Runtime.Remoting.Contexts;
 using System.ServiceProcess;
 using System.Timers;
+using System.Data.Entity;
+using System.ComponentModel.DataAnnotations;
+using System.Configuration;
+using System.Linq;
 
 namespace TimosService
 {
+
+    //Entity Frameworks. Define the Receipts class for the Receipts table in the database
+    public class Receipts
+    {
+        [Key]
+        public int Recnum { get; set; }
+        public int UserIDrecnum { get; set; }
+    }
+    //Define the Receiptscontext to connect to the database
+    public class ReceiptsDatabaseContext : DbContext
+    {
+        public ReceiptsDatabaseContext(string connectionString) : base(connectionString)
+        {
+        }
+
+        public DbSet<Receipts> Receipts { get; set; }
+    }
+
+
     public partial class ReceiptDataSolution : ServiceBase
     {
         public static int eventId = 1;
         Timer timer = new Timer();
         public ReceiptDataSolution()
         {
+
             InitializeComponent();
         }
 
@@ -32,18 +58,11 @@ namespace TimosService
 
         private void OnElapsedTime(object source, ElapsedEventArgs e)
         {
+            AddReceipt();
             WriteToFile("Event ID:" + eventId + "| Service was ran at " + DateTime.Now);
             eventId++;
+            
 
-            string connectionString = GetConnectionString();
-
-            using (SqlConnection connection = OpenSqlConnection(connectionString))
-            {
-                if (connection != null)
-                {
-                    ExecuteQuery(connection);
-                }
-            }
         }
 
         public static void WriteToFile(string Message)
@@ -72,7 +91,50 @@ namespace TimosService
             }
         }
 
-        public static SqlConnection OpenSqlConnection(string connectionString)
+        public void AddReceipt()
+        {
+            WriteToFile("Event ID:" + eventId + "| PUllingconnections string");
+
+            string connectionString = ConfigurationManager.ConnectionStrings["ReceiptsDatabaseContext"].ConnectionString;
+
+            WriteToFile(connectionString);
+            WriteToFile("Event ID:" + eventId + "| Pulled connections string");
+            try
+            {
+                WriteToFile("Event ID:" + eventId + "| Attempting to connect to database.");
+                using (var context = new ReceiptsDatabaseContext(connectionString))
+                {
+                    WriteToFile("Event ID:" + eventId + "| Connected to database.");
+
+                    // Add a new Receipt
+                    var newReceipt = new Receipts { UserIDrecnum = 10 };
+                    context.Receipts.Add(newReceipt);
+                    context.SaveChanges();
+                    WriteToFile("Event ID:" + eventId + "| Added new receipt with UserIDrecnum: " + newReceipt.UserIDrecnum);
+
+                    // Query Receipts using IQueryable
+                    IQueryable<Receipts> ReceiptsQuery = context.Receipts.Where(p => p.Recnum > 0);
+
+                    foreach (var Receipt in ReceiptsQuery)
+                    {
+                        WriteToFile("Event ID:" + eventId + "| " + $"Receipt: {Receipt.Recnum}, UserIDrecnum: {Receipt.UserIDrecnum}");
+                        eventId++;
+                    }
+                }
+            }
+            catch (SqlException ex)
+            {
+                WriteToFile("Event ID:" + eventId + "| SQL Exception: " + ex.Message);
+                eventId++;
+            }
+            catch (Exception ex)
+            {
+                WriteToFile("Event ID:" + eventId + "| General Exception: " + ex.Message);
+                eventId++;
+            }
+        }
+
+        /*public static SqlConnection OpenSqlConnection(string connectionString)
         {
             try
             {
@@ -130,17 +192,8 @@ namespace TimosService
                 WriteToFile("Event ID:" + eventId + "| General Exception: " + ex.Message);
                 eventId++;
             }
-        }
+        }*/
 
-        static private string GetConnectionString()
-        {           
-             //TODO
-            // To avoid storing the connection string in your code, 
-            // you can retrieve it from a configuration file, using the 
-            // System.Configuration.ConfigurationSettings.AppSettings property
-            //(local)/
-            return "Persist Security Info=False;User ID=ReceiptDataSolution;Password=ReceiptDataSolution;Initial Catalog=ReceiptDataSolution;Server=DESKTOP-NATENFH";
-        }
     }
 
 }
