@@ -9,28 +9,11 @@ using System.Data.Entity;
 using System.ComponentModel.DataAnnotations;
 using System.Configuration;
 using System.Linq;
+using System.Data.Entity.Migrations;
+using static TimosService.ReceiptDataSolution;
 
 namespace TimosService
 {
-
-    //Entity Frameworks. Define the Receipts class for the Receipts table in the database
-    public class Receipts
-    {
-        [Key]
-        public int Recnum { get; set; }
-        public int UserIDrecnum { get; set; }
-    }
-    //Define the Receiptscontext to connect to the database
-    public class ReceiptsDatabaseContext : DbContext
-    {
-        public ReceiptsDatabaseContext(string connectionString) : base(connectionString)
-        {
-        }
-
-        public DbSet<Receipts> Receipts { get; set; }
-    }
-
-
     public partial class ReceiptDataSolution : ServiceBase
     {
         public static int eventId = 1;
@@ -58,11 +41,37 @@ namespace TimosService
 
         private void OnElapsedTime(object source, ElapsedEventArgs e)
         {
-            AddReceipt();
+            
             WriteToFile("Event ID:" + eventId + "| Service was ran at " + DateTime.Now);
             eventId++;
-            
+            TestDBConnection();
+            //AddReceipt();
 
+        }
+        //Entity Frameworks. Define the Receipts class for the Receipts table in the database
+        public class Receipts
+        {
+            [Key]
+            public int Recnum { get; set; }
+            public int UserIDrecnum { get; set; }
+        }
+        public class SystemSpecs
+        {
+            [Key]
+            public string Version { get; set; }
+            public string Basepath { get; set; }
+            public DateTime LastStartDateTimeUTC { get; set; }
+        }
+
+        //Define the Receiptscontext to connect to the database
+        public class ReceiptsDatabaseContext : DbContext
+        {
+            public ReceiptsDatabaseContext(string connectionString) : base(connectionString)
+            {
+            }
+
+            public DbSet<Receipts> Receipts { get; set; }
+            public DbSet<SystemSpecs> SystemSpecs { get; set; }
         }
 
         public static void WriteToFile(string Message)
@@ -91,14 +100,53 @@ namespace TimosService
             }
         }
 
+        public void TestDBConnection()
+        {
+            
+            string connectionString = ConfigurationManager.ConnectionStrings["ReceiptsDatabaseContext"].ConnectionString;
+
+            try
+            {
+                WriteToFile("Event ID:" + eventId + "| Attempting to connect to database.");
+                using (var context = new ReceiptsDatabaseContext(connectionString))
+                {
+                    WriteToFile("Event ID:" + eventId + "| Connected to database.");
+
+                    var SystemSpec = context.SystemSpecs.FirstOrDefault();
+
+                    // Update the LastStartDateTimeUTC field
+                    SystemSpec.LastStartDateTimeUTC = DateTime.UtcNow;
+                    context.SystemSpecs.AddOrUpdate(SystemSpec);
+                    context.SaveChanges();
+                    WriteToFile("Event ID:" + eventId + "| Updated LastStartDateTimeUTC to: " + SystemSpec.LastStartDateTimeUTC);
+
+                }
+
+            }
+            catch (SqlException ex)
+            {
+                WriteToFile("Event ID:" + eventId + "| SQL Exception: " + ex.Message);
+                eventId++;
+            }
+            catch (Exception ex)
+            {
+                WriteToFile("Event ID:" + eventId + "| General Exception: " + ex.Message);
+                eventId++;
+            }
+        }
+
+
+        public void TestBasePath()
+        {
+            string connectionString = ConfigurationManager.ConnectionStrings["ReceiptsDatabaseContext"].ConnectionString;
+
+        }
+
         public void AddReceipt()
         {
-            WriteToFile("Event ID:" + eventId + "| PUllingconnections string");
 
             string connectionString = ConfigurationManager.ConnectionStrings["ReceiptsDatabaseContext"].ConnectionString;
 
-            WriteToFile(connectionString);
-            WriteToFile("Event ID:" + eventId + "| Pulled connections string");
             try
             {
                 WriteToFile("Event ID:" + eventId + "| Attempting to connect to database.");
@@ -133,66 +181,6 @@ namespace TimosService
                 eventId++;
             }
         }
-
-        /*public static SqlConnection OpenSqlConnection(string connectionString)
-        {
-            try
-            {
-                SqlConnection connection = new SqlConnection(connectionString);
-                connection.Open();
-                WriteToFile("Event ID:" + eventId + "| ServerVersion: " + connection.ServerVersion);
-                eventId++;
-                WriteToFile("Event ID:" + eventId + "| State: " + connection.State);
-                eventId++;
-                return connection;
-            }
-            catch (SqlException ex)
-            {
-                WriteToFile("Event ID:" + eventId + "| SQL Exception: " + ex.Message);
-                eventId++;
-                return null;
-            }
-            catch (InvalidOperationException ex)
-            {
-                WriteToFile("Event ID:" + eventId + "| Invalid Operation Exception: " + ex.Message);
-                eventId++;
-                return null;
-            }
-            catch (Exception ex)
-            {
-                WriteToFile("Event ID:" + eventId + "| General Exception: " + ex.Message);
-                eventId++;
-                return null;
-            }
-        }
-
-        public static void ExecuteQuery(SqlConnection connection)
-        {
-            try
-            {
-                string queryString = "SELECT Recnum, UserIDrecnum FROM dbo.Receipts;";
-                var command = new SqlCommand(queryString, connection);
-
-                using (var reader = command.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        WriteToFile("Event ID:" + eventId + "|" + String.Format(" {0}, {1}", reader[0], reader[1]));
-                        eventId++;
-                    }
-                }
-            }
-            catch (SqlException ex)
-            {
-                WriteToFile("Event ID:" + eventId + "| SQL Exception: " + ex.Message);
-                eventId++;
-            }
-            catch (Exception ex)
-            {
-                WriteToFile("Event ID:" + eventId + "| General Exception: " + ex.Message);
-                eventId++;
-            }
-        }*/
 
     }
 
