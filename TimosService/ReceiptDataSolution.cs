@@ -1,4 +1,6 @@
-﻿using System;
+﻿
+
+using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.IO;
@@ -10,7 +12,6 @@ using System.ComponentModel.DataAnnotations;
 using System.Configuration;
 using System.Linq;
 using System.Data.Entity.Migrations;
-using static TimosService.ReceiptDataSolution;
 
 namespace TimosService
 {
@@ -45,7 +46,7 @@ namespace TimosService
             WriteToFile("Event ID:" + eventId + "| Service was ran at " + DateTime.Now);
             eventId++;
             TestDBConnection();
-            //AddReceipt();
+            TestBasePath();
 
         }
         //Entity Frameworks. Define the Receipts class for the Receipts table in the database
@@ -59,7 +60,7 @@ namespace TimosService
         {
             [Key]
             public string Version { get; set; }
-            public string Basepath { get; set; }
+            public string BasePath { get; set; }
             public DateTime LastStartDateTimeUTC { get; set; }
         }
 
@@ -107,10 +108,10 @@ namespace TimosService
 
             try
             {
-                WriteToFile("Event ID:" + eventId + "| Attempting to connect to database.");
+                //WriteToFile("Event ID:" + eventId + "| Attempting to connect to database.");
                 using (var context = new ReceiptsDatabaseContext(connectionString))
                 {
-                    WriteToFile("Event ID:" + eventId + "| Connected to database.");
+                    //WriteToFile("Event ID:" + eventId + "| Connected to database.");
 
                     var SystemSpec = context.SystemSpecs.FirstOrDefault();
 
@@ -118,7 +119,7 @@ namespace TimosService
                     SystemSpec.LastStartDateTimeUTC = DateTime.UtcNow;
                     context.SystemSpecs.AddOrUpdate(SystemSpec);
                     context.SaveChanges();
-                    WriteToFile("Event ID:" + eventId + "| Updated LastStartDateTimeUTC to: " + SystemSpec.LastStartDateTimeUTC);
+                    //WriteToFile("Event ID:" + eventId + "| Updated LastStartDateTimeUTC to: " + SystemSpec.LastStartDateTimeUTC);
 
                 }
 
@@ -134,14 +135,34 @@ namespace TimosService
                 eventId++;
             }
         }
-
-
         public void TestBasePath()
         {
             string connectionString = ConfigurationManager.ConnectionStrings["ReceiptsDatabaseContext"].ConnectionString;
 
-        }
+                using (var context = new ReceiptsDatabaseContext(connectionString))
+                {
+                    var SystemSpec = context.SystemSpecs.FirstOrDefault();
 
+                    if(SystemSpec.BasePath != null)
+                    {
+
+                        try
+                        {
+                            Directory.CreateDirectory(SystemSpec.BasePath);
+                        }
+                        catch (Exception ex)
+                        {
+                            WriteToFile("Event ID:" + eventId + "| General Exception: " + ex.Message);
+                            eventId++;
+                        }
+                    }
+                    else
+                    {
+                        WriteToFile("Event ID:" + eventId + "| BasePath Field in SystemSpecs is NULL");
+                        eventId++;
+                    }
+                }
+            }
         public void AddReceipt()
         {
 
